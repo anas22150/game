@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="ar" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>🏝️ جزيرة البقاء - موبايل</title>
+    <style>
+        * {
+            user-select: none;
+            touch-action: manipulation;
+        }
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000;
+        }
+        /* شريط المعلومات العلوي */
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.75);
+            backdrop-filter: blur(8px);
+            border-radius: 30px;
+            padding: 8px 12px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            z-index: 20;
+            color: white;
+            font-weight: bold;
+            font-size: 0.8rem;
+            pointer-events: auto;
+        }
+        .stats {
+            display: flex;
+            gap: 10px;
+            background: #00000055;
+            padding: 4px 10px;
+            border-radius: 40px;
+        }
+        button {
+            background: #e67e22;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 40px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.75rem;
+            touch-action: manipulation;
+        }
+        .help-btn { background: #2a7a4a; }
+        .cook-btn { background: #e67e22; }
+        #inventory-panel {
+            position: absolute;
+            bottom: 180px;
+            right: 15px;
+            width: 220px;
+            background: #1e2a1ecc;
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            padding: 12px;
+            color: #ffefb9;
+            z-index: 25;
+            display: none;
+            border: 2px solid #ffaa55;
+            text-align: center;
+            font-size: 0.8rem;
+        }
+        .inv-row { display: flex; justify-content: space-between; margin: 6px 0; }
+        /* أزرار الحركة */
+        .movement-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: grid;
+            grid-template-columns: repeat(3, 60px);
+            grid-template-rows: repeat(2, 60px);
+            gap: 8px;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 80px;
+            backdrop-filter: blur(4px);
+            z-index: 20;
+        }
+        .move-btn {
+            background: #333c;
+            border: none;
+            border-radius: 50%;
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+            text-align: center;
+            line-height: 60px;
+            cursor: pointer;
+            touch-action: manipulation;
+            box-shadow: 0 2px 8px black;
+        }
+        .move-btn:active { background: #e67e22; transform: scale(0.95); }
+        .grid-up { grid-column: 2 / 3; grid-row: 1; }
+        .grid-left { grid-column: 1 / 2; grid-row: 2; }
+        .grid-down { grid-column: 2 / 3; grid-row: 2; }
+        .grid-right { grid-column: 3 / 4; grid-row: 2; }
+        /* زر الإجراء الرئيسي (جمع / هجوم) */
+        .action-btn {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            width: 70px;
+            height: 70px;
+            background: #e94560;
+            border-radius: 50%;
+            border: none;
+            font-size: 32px;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 4px 12px black;
+            z-index: 20;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .action-btn:active { transform: scale(0.92); background: #ff6666; }
+        /* الدردشة */
+        #chat-box {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            background: rgba(0,0,0,0.7);
+            border-radius: 40px;
+            padding: 5px 10px;
+            display: flex;
+            gap: 8px;
+            z-index: 20;
+            pointer-events: auto;
+        }
+        #chat-input {
+            flex: 1;
+            padding: 6px;
+            border-radius: 30px;
+            border: none;
+            background: #2c3e2f;
+            color: white;
+            font-size: 0.8rem;
+        }
+        #chat-messages {
+            position: absolute;
+            bottom: 100px;
+            left: 15px;
+            width: 260px;
+            max-height: 140px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.6);
+            border-radius: 20px;
+            padding: 6px;
+            font-size: 0.65rem;
+            color: #ffefb9;
+            pointer-events: none;
+            z-index: 20;
+        }
+        @media (max-width: 600px) {
+            .movement-panel { transform: scale(0.8); left: -5px; bottom: 0px; }
+            .action-btn { width: 60px; height: 60px; font-size: 28px; bottom: 20px; right: 20px; }
+            .stats { font-size: 0.65rem; gap: 6px; }
+            button { padding: 4px 10px; font-size: 0.65rem; }
+        }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <div id="ui">
+        <div class="stats">
+            <span>👤 <span id="playerName">...</span></span>
+            <span>🌲 <span id="wood">0</span></span>
+            <span>🪨 <span id="iron">0</span></span>
+            <span>🍖 <span id="raw">0</span></span>
+            <span>🍗 <span id="cooked">0</span></span>
+            <span>🍽️ <span id="hunger">100</span>%</span>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <button id="cookBtn" class="cook-btn">🔥 طهي</button>
+            <button id="inventoryBtn">🎒 شنطة</button>
+            <button id="helpBtn" class="help-btn">🤝 مساعدة</button>
+        </div>
+    </div>
+    <div id="inventory-panel">
+        <h3>📦 المخزون</h3>
+        <div class="inv-row">🌲 خشب: <span id="invWood">0</span></div>
+        <div class="inv-row">🪨 حديد: <span id="invIron">0</span></div>
+        <div class="inv-row">🍖 لحم ني: <span id="invRaw">0</span></div>
+        <div class="inv-row">🍗 لحم مطبوخ: <span id="invCooked">0</span></div>
+        <button id="closeInv">إغلاق</button>
+    </div>
+    <div id="chat-messages"></div>
+    <div id="chat-box">
+        <input type="text" id="chat-input" placeholder="رسالة...">
+        <button id="sendChat">إرسال</button>
+    </div>
+
+    <!-- أزرار التحكم -->
+    <div class="movement-panel">
+        <div class="move-btn grid-up" data-dir="up">▲</div>
+        <div class="move-btn grid-left" data-dir="left">◀</div>
+        <div class="move-btn grid-down" data-dir="down">▼</div>
+        <div class="move-btn grid-right" data-dir="right">▶</div>
+    </div>
+    <button id="actionBtn" class="action-btn">🎯</button>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+        // -------- الاتصال بالسيرفر ----------
+        const socket = io();
+        let localPlayer = { id: null, name: '', wood: 0, iron: 0, rawMeat: 0, cookedMeat: 0, hunger: 100, x: 0, z: 0 };
+        let otherPlayers = new Map();
+
+        // -------- إعدادات Three.js (خفيفة) --------
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x6bb3e0);
+        scene.fog = new THREE.FogExp2(0x6bb3e0, 0.008);
+        const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.2, 200);
+        camera.position.set(0, 5, 8);
+        camera.lookAt(0, 0, 0);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+        const labelRenderer = new CSS2DRenderer();
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0px';
+        labelRenderer.domElement.style.left = '0px';
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        document.body.appendChild(labelRenderer.domElement);
+
+        // إضاءة وأرضية
+        const ambient = new THREE.AmbientLight(0x6c7a5e);
+        scene.add(ambient);
+        const dirLight = new THREE.DirectionalLight(0xfff5c0, 0.9);
+        dirLight.position.set(5, 12, 4);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x6b9e48, roughness: 0.9 });
+        const ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), groundMat);
+        ground.rotation.x = -Math.PI/2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+        const grid = new THREE.GridHelper(120, 20, 0x88aa55, 0x446633);
+        grid.position.y = 0.02;
+        scene.add(grid);
+
+        // -------- الموارد --------
+        const resources = [];
+        const treePos = [[-10,-8],[8,7],[-5,12],[14,-6],[-15,5],[6,-12],[0,18],[18,0],[-18,-5],[12,-14],[-12,10],[4,-16]];
+        treePos.forEach(([x,z]) => {
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.5,1.2), new THREE.MeshStandardMaterial({ color: 0x8B5A2B }));
+            trunk.position.y = 0.6;
+            const foliage = new THREE.Mesh(new THREE.ConeGeometry(0.7,1.0,5), new THREE.MeshStandardMaterial({ color: 0x4CAF50 }));
+            foliage.position.y = 1.2;
+            const group = new THREE.Group();
+            group.add(trunk, foliage);
+            group.position.set(x, 0, z);
+            scene.add(group);
+            resources.push({ mesh: group, type: 'wood', value: 5, x, z });
+        });
+        const ironPos = [[-12,-6],[9,9],[-7,14],[11,-10],[-14,4],[5,-8],[15,2],[-4,-15]];
+        ironPos.forEach(([x,z]) => {
+            const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.45), new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.8 }));
+            rock.position.set(x, 0.25, z);
+            rock.castShadow = true;
+            scene.add(rock);
+            resources.push({ mesh: rock, type: 'iron', value: 3, x, z });
+        });
+        let animals = [];
+        const pigPos = [[-4,-5],[5,6],[-8,9],[11,-4],[3,-9],[-12,-2]];
+        pigPos.forEach(([x,z]) => {
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.8,0.6,1.2), new THREE.MeshStandardMaterial({ color: 0xE8B4A0 }));
+            body.position.y = 0.3;
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.4), new THREE.MeshStandardMaterial({ color: 0xE8B4A0 }));
+            head.position.set(0,0.4,0.7);
+            const group = new THREE.Group();
+            group.add(body, head);
+            group.position.set(x, 0, z);
+            scene.add(group);
+            animals.push({ mesh: group, type: 'pig', hp: 20, x, z });
+        });
+
+        // -------- دوال اللاعب --------
+        function updateUI() {
+            document.getElementById('wood').innerText = localPlayer.wood;
+            document.getElementById('iron').innerText = localPlayer.iron;
+            document.getElementById('raw').innerText = localPlayer.rawMeat;
+            document.getElementById('cooked').innerText = localPlayer.cookedMeat;
+            document.getElementById('hunger').innerText = localPlayer.hunger;
+            document.getElementById('invWood').innerText = localPlayer.wood;
+            document.getElementById('invIron').innerText = localPlayer.iron;
+            document.getElementById('invRaw').innerText = localPlayer.rawMeat;
+            document.getElementById('invCooked').innerText = localPlayer.cookedMeat;
+        }
+        function addResource(type, amount) {
+            if (type === 'wood') localPlayer.wood += amount;
+            else if (type === 'iron') localPlayer.iron += amount;
+            else if (type === 'rawMeat') localPlayer.rawMeat += amount;
+            else if (type === 'cookedMeat') localPlayer.cookedMeat += amount;
+            updateUI();
+            socket.emit('update_stats', { wood: localPlayer.wood, iron: localPlayer.iron, rawMeat: localPlayer.rawMeat, cookedMeat: localPlayer.cookedMeat, hunger: localPlayer.hunger });
+        }
+
+        // -------- نظام الجوع --------
+        setInterval(() => {
+            if (localPlayer.hunger > 0) {
+                localPlayer.hunger = Math.max(0, localPlayer.hunger - 2);
+                updateUI();
+                socket.emit('update_stats', localPlayer);
+                if (localPlayer.hunger <= 0) {
+                    alert("لقد مت جوعاً! ستعاد مواردك.");
+                    localPlayer.wood = localPlayer.iron = localPlayer.rawMeat = localPlayer.cookedMeat = 0;
+                    localPlayer.hunger = 80;
+                    updateUI();
+                    socket.emit('update_stats', localPlayer);
+                }
+            }
+        }, 7000);
+
+        // -------- طهي وأكل --------
+        document.getElementById('cookBtn').addEventListener('click', () => {
+            if (localPlayer.rawMeat >= 1) {
+                localPlayer.rawMeat--;
+                localPlayer.cookedMeat++;
+                updateUI();
+                socket.emit('update_stats', localPlayer);
+                addChatMessage("🔥 طهوت لحماً!", "system");
+            } else alert("لا يوجد لحم ني!");
+        });
+        function eat() {
+            if (localPlayer.cookedMeat >= 1) {
+                localPlayer.cookedMeat--;
+                localPlayer.hunger = Math.min(100, localPlayer.hunger + 25);
+                updateUI();
+                socket.emit('update_stats', localPlayer);
+                addChatMessage("🍗 أكلت لحماً مشوياً! +25 جوع", "system");
+            } else alert("لا يوجد لحم مطبوخ!");
+        }
+        // زر الأكل من لوحة المفاتيح للاختبار (اختياري)
+        window.addEventListener('keydown', (e) => { if (e.code === 'KeyE') eat(); });
+
+        // -------- مساعدة لاعب قريب (لمس) --------
+        document.getElementById('helpBtn').addEventListener('click', () => {
+            if (localPlayer.wood < 10) { alert("لا تملك 10 خشب"); return; }
+            let closest = null, minDist = 6;
+            for (let [id, p] of otherPlayers.entries()) {
+                const dist = Math.hypot(p.data.x - localPlayer.x, p.data.z - localPlayer.z);
+                if (dist < minDist) { minDist = dist; closest = id; }
+            }
+            if (closest) {
+                localPlayer.wood -= 10;
+                updateUI();
+                socket.emit('update_stats', localPlayer);
+                socket.emit('give_resource', { targetId: closest, type: 'wood', amount: 10 });
+                addChatMessage(`🎁 أعطيت 10 خشب للاعب قريب`, "system");
+            } else alert("لا يوجد لاعب قريب");
+        });
+
+        // -------- الشنطة --------
+        const invPanel = document.getElementById('inventory-panel');
+        document.getElementById('inventoryBtn').addEventListener('click', () => invPanel.style.display = 'block');
+        document.getElementById('closeInv').addEventListener('click', () => invPanel.style.display = 'none');
+
+        // -------- إجراء الجمع/الهجوم (الزر الكبير) --------
+        const actionBtn = document.getElementById('actionBtn');
+        function performAction() {
+            // نستخدم raycasting من الكاميرا إلى الأمام لتحديد أقرب مورد أو حيوان
+            const raycaster = new THREE.Raycaster();
+            const forward = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+            raycaster.set(camera.position, forward);
+            const resourceMeshes = resources.map(r => r.mesh);
+            const intersects = raycaster.intersectObjects(resourceMeshes);
+            if (intersects.length) {
+                const hit = intersects[0].object;
+                const res = resources.find(r => r.mesh === hit);
+                if (res && hit.distance < 3) {
+                    addResource(res.type, res.value);
+                    scene.remove(res.mesh);
+                    resources.splice(resources.indexOf(res),1);
+                    setTimeout(() => {
+                        if (res.type === 'wood') {
+                            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.5,1.2), new THREE.MeshStandardMaterial({ color: 0x8B5A2B }));
+                            trunk.position.y = 0.6;
+                            const foliage = new THREE.Mesh(new THREE.ConeGeometry(0.7,1.0,5), new THREE.MeshStandardMaterial({ color: 0x4CAF50 }));
+                            foliage.position.y = 1.2;
+                            const group = new THREE.Group();
+                            group.add(trunk, foliage);
+                            group.position.set(res.x, 0, res.z);
+                            scene.add(group);
+                            resources.push({ mesh: group, type: 'wood', value: 5, x: res.x, z: res.z });
+                        } else {
+                            const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.45), new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.8 }));
+                            rock.position.set(res.x, 0.25, res.z);
+                            scene.add(rock);
+                            resources.push({ mesh: rock, type: 'iron', value: 3, x: res.x, z: res.z });
+                        }
+                    }, 8000);
+                    return;
+                }
+            }
+            const animalMeshes = animals.map(a => a.mesh);
+            const animalIntersects = raycaster.intersectObjects(animalMeshes);
+            if (animalIntersects.length) {
+                const hit = animalIntersects[0].object;
+                const animal = animals.find(a => a.mesh === hit);
+                if (animal && hit.distance < 2.5) {
+                    animal.hp -= 20;
+                    if (animal.hp <= 0) {
+                        scene.remove(animal.mesh);
+                        addResource('rawMeat', 3);
+                        animals = animals.filter(a => a !== animal);
+                        addChatMessage("🐗 حصلت على 3 لحم ني!", "system");
+                        setTimeout(() => {
+                            const body = new THREE.Mesh(new THREE.BoxGeometry(0.8,0.6,1.2), new THREE.MeshStandardMaterial({ color: 0xE8B4A0 }));
+                            body.position.y = 0.3;
+                            const head = new THREE.Mesh(new THREE.SphereGeometry(0.4), new THREE.MeshStandardMaterial({ color: 0xE8B4A0 }));
+                            head.position.set(0,0.4,0.7);
+                            const group = new THREE.Group();
+                            group.add(body, head);
+                            group.position.set(animal.x, 0, animal.z);
+                            scene.add(group);
+                            animals.push({ mesh: group, type: 'pig', hp: 20, x: animal.x, z: animal.z });
+                        }, 12000);
+                    } else {
+                        addChatMessage(`🐗 ضربت خنزير! (بقيت ${animal.hp} صحة)`, "system");
+                    }
+                    return;
+                }
+            }
+            addChatMessage("لا شيء قريب لجنيه", "system");
+        }
+        actionBtn.addEventListener('click', performAction);
+
+        // -------- حركة اللاعب بالأزرار --------
+        let moveDir = { x: 0, z: 0 };
+        const moveBtnMap = {
+            'up': { x: 0, z: -1 },
+            'down': { x: 0, z: 1 },
+            'left': { x: -1, z: 0 },
+            'right': { x: 1, z: 0 }
+        };
+        function setMoving(dir, isActive) {
+            const delta = moveBtnMap[dir];
+            if (!delta) return;
+            if (isActive) {
+                moveDir.x += delta.x;
+                moveDir.z += delta.z;
+            } else {
+                moveDir.x -= delta.x;
+                moveDir.z -= delta.z;
+            }
+            // تطبيع لمنع السرعة القطرية الزائدة
+            const len = Math.hypot(moveDir.x, moveDir.z);
+            if (len > 0) {
+                moveDir.x /= len;
+                moveDir.z /= len;
+            }
+        }
+        document.querySelectorAll('.move-btn').forEach(btn => {
+            const dir = btn.getAttribute('data-dir');
+            const startMove = () => setMoving(dir, true);
+            const stopMove = () => setMoving(dir, false);
+            btn.addEventListener('mousedown', startMove);
+            btn.addEventListener('mouseup', stopMove);
+            btn.addEventListener('mouseleave', stopMove);
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); startMove(); });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); stopMove(); });
+            btn.addEventListener('touchcancel', stopMove);
+        });
+        
+        function updateMovement(delta) {
+            if (moveDir.x === 0 && moveDir.z === 0) return;
+            const speed = 5.0 * delta;
+            let newX = localPlayer.x + moveDir.x * speed;
+            let newZ = localPlayer.z + moveDir.z * speed;
+            newX = Math.min(Math.max(newX, -55), 55);
+            newZ = Math.min(Math.max(newZ, -55), 55);
+            localPlayer.x = newX;
+            localPlayer.z = newZ;
+            // تحديث موقع الكاميرا لتتبع اللاعب
+            camera.position.x = localPlayer.x;
+            camera.position.z = localPlayer.z + 6;
+            camera.lookAt(localPlayer.x, 0, localPlayer.z);
+            socket.emit('move', { x: localPlayer.x, z: localPlayer.z });
+        }
+
+        // -------- إدارة اللاعبين الآخرين --------
+        function addOtherPlayer(p) {
+            const geometry = new THREE.BoxGeometry(0.7, 1.2, 0.7);
+            const material = new THREE.MeshStandardMaterial({ color: 0x66cc99 });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.castShadow = true;
+            mesh.position.set(p.x, 0.6, p.z);
+            scene.add(mesh);
+            const div = document.createElement('div');
+            div.style.backgroundColor = '#000000aa';
+            div.style.color = '#ffefb9';
+            div.style.padding = '2px 8px';
+            div.style.borderRadius = '20px';
+            div.style.fontSize = '11px';
+            div.style.whiteSpace = 'nowrap';
+            const label = new CSS2DObject(div);
+            label.position.set(0, 1.5, 0);
+            mesh.add(label);
+            otherPlayers.set(p.id, { mesh, label, data: p });
+            updateOtherLabel(p.id);
+        }
+        function updateOtherLabel(id) {
+            const p = otherPlayers.get(id);
+            if (p) p.label.element.innerHTML = `${p.data.name}<br>🌲${p.data.wood} 🪨${p.data.iron} 🍖${p.data.rawMeat} 🍗${p.data.cookedMeat} ❤️${p.data.hunger}`;
+        }
+        function removeOtherPlayer(id) {
+            if (otherPlayers.has(id)) {
+                scene.remove(otherPlayers.get(id).mesh);
+                otherPlayers.delete(id);
+            }
+        }
+        
+        // أحداث السوكيت
+        let playerName = prompt("أدخل اسمك:", "مغامر") || "مغامر";
+        document.getElementById('playerName').innerHTML = playerName;
+        socket.emit('join', { name: playerName });
+        
+        socket.on('init', (data) => {
+            localPlayer.id = data.id;
+            updateUI();
+            data.players.forEach(p => { if (p.id !== localPlayer.id) addOtherPlayer(p); });
+        });
+        socket.on('player_joined', (p) => { if (p.id !== localPlayer.id) addOtherPlayer(p); });
+        socket.on('player_left', (id) => removeOtherPlayer(id));
+        socket.on('player_moved', ({ id, x, z }) => { if (otherPlayers.has(id)) { otherPlayers.get(id).data.x = x; otherPlayers.get(id).data.z = z; } });
+        socket.on('stats_update', (data) => {
+            if (otherPlayers.has(data.id)) {
+                Object.assign(otherPlayers.get(data.id).data, data);
+                updateOtherLabel(data.id);
+            }
+        });
+        socket.on('resource_received', (data) => addChatMessage(`🎁 تلقيت ${data.amount} خشب من ${data.fromName}`, "system"));
+        
+        // الدردشة
+        const chatInput = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('sendChat');
+        const messagesDiv = document.getElementById('chat-messages');
+        function addChatMessage(text, type) {
+            const div = document.createElement('div');
+            div.innerText = text;
+            div.style.marginBottom = '4px';
+            div.style.borderBottom = '1px solid #aaa';
+            messagesDiv.appendChild(div);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            setTimeout(() => { if (messagesDiv.children.length > 25) messagesDiv.removeChild(messagesDiv.children[0]); }, 100);
+        }
+        sendBtn.onclick = () => {
+            const msg = chatInput.value.trim();
+            if (msg) { socket.emit('chat', msg); chatInput.value = ''; }
+        };
+        chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendBtn.click(); });
+        socket.on('chat_message', (data) => addChatMessage(`${data.name}: ${data.msg}`, "user"));
+        
+        // حلقة الرسم
+        let lastTime = performance.now();
+        function animate() {
+            const now = performance.now();
+            let delta = Math.min(0.033, (now - lastTime) / 1000);
+            lastTime = now;
+            updateMovement(delta);
+            for (let [id, p] of otherPlayers.entries()) p.mesh.position.set(p.data.x, 0.6, p.data.z);
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+        animate();
+    </script>
+</body>
+</html>
